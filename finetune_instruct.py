@@ -22,12 +22,9 @@ from train_utils import (
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Instruction finetune BDH on Alpaca + Dolly."
-    )
+    parser = argparse.ArgumentParser(description="Instruction finetune BDH on Alpaca.")
     parser.add_argument("--alpaca-dataset", default="tatsu-lab/alpaca")
-    parser.add_argument("--dolly-dataset", default="databricks/databricks-dolly-15k")
-    parser.add_argument("--data-dir", default="data/instruction/alpaca_dolly")
+    parser.add_argument("--data-dir", default="data/instruction/alpaca")
     parser.add_argument("--rebuild-data", action="store_true")
     parser.add_argument("--val-ratio", type=float, default=0.02)
     parser.add_argument("--seed", type=int, default=1337)
@@ -95,7 +92,6 @@ def main():
     train_bin, val_bin, _meta = build_instruction_bins(
         out_dir=args.data_dir,
         alpaca_dataset=args.alpaca_dataset,
-        dolly_dataset=args.dolly_dataset,
         val_ratio=args.val_ratio,
         seed=args.seed,
         max_examples=args.max_examples,

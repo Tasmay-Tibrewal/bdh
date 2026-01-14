@@ -152,7 +152,8 @@ def format_alpaca_prompt(example):
 def build_instruction_bins(
     out_dir,
     alpaca_dataset,
-    dolly_dataset,
+    *,
+    dolly_dataset=None,
     val_ratio,
     seed,
     max_examples=None,
@@ -171,11 +172,21 @@ def build_instruction_bins(
         return train_path, val_path, meta_path
 
     os.makedirs(out_dir, exist_ok=True)
-    alpaca = load_dataset(alpaca_dataset, split="train")
-    alpaca = alpaca.map(normalize_alpaca, remove_columns=alpaca.column_names)
-    dolly = load_dataset(dolly_dataset, split="train")
-    dolly = dolly.map(normalize_dolly, remove_columns=dolly.column_names)
-    combined = concatenate_datasets([alpaca, dolly]).shuffle(seed=seed)
+    datasets = []
+    if alpaca_dataset:
+        alpaca = load_dataset(alpaca_dataset, split="train")
+        alpaca = alpaca.map(normalize_alpaca, remove_columns=alpaca.column_names)
+        datasets.append(alpaca)
+    if dolly_dataset:
+        dolly = load_dataset(dolly_dataset, split="train")
+        dolly = dolly.map(normalize_dolly, remove_columns=dolly.column_names)
+        datasets.append(dolly)
+    if not datasets:
+        raise ValueError("At least one dataset must be provided.")
+    if len(datasets) == 1:
+        combined = datasets[0].shuffle(seed=seed)
+    else:
+        combined = concatenate_datasets(datasets).shuffle(seed=seed)
 
     if max_examples:
         combined = combined.select(range(max_examples))

@@ -84,17 +84,13 @@ You can specify `--max-epochs` to target approximate epochs instead of steps.
 Checkpoints are saved to `checkpoints/` with `ckpt_best.pt` tracking the best
 validation loss.
 
-### Instruction finetuning (Alpaca + Dolly)
+### Instruction finetuning (Alpaca)
 
 ```bash
 python finetune_instruct.py --model-size 25m
 ```
 
-Instruction data is normalized to Alpaca format. Dolly examples are converted by:
-- `response` -> `output`
-- `category` is dropped
-- `context` is appended to the instruction as:
-  `instruction = f"{instruction}\n\n**Context:**\n{context}"`
+Instruction data is normalized to Alpaca format.
 
 ### Small-scale supervised finetuning (quick runs)
 
@@ -105,7 +101,8 @@ python sft_small.py --model-size 25m --max-examples 2000
 ### Utility: steps per epoch
 
 ```bash
-python steps_per_epoch.py --data-bin data/tinystories_v2_gpt4/train.bin --batch-size 64 --block-size 512
+python steps_per_epoch.py --dataset pretrain --batch-size 64 --block-size 512
+python steps_per_epoch.py --dataset instruction --batch-size 64 --block-size 512
 ```
 
 ### Utility: inference from a checkpoint
