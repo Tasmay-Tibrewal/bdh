@@ -1,3 +1,6 @@
 torch
 numpy
 requests
+datasets
+wandb
+tqdm

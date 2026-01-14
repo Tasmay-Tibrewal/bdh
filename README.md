@@ -60,6 +60,53 @@ pip install -r requirements.txt
 python train.py
 ```
 
+### Weights and Biases logging
+
+All new training scripts log metrics to W&B. Make sure you are logged in:
+
+```bash
+wandb login
+```
+
+You can also override the project name per script with `--wandb-project`.
+
+### Pretraining on TinyStories v2 (GPT-4 only)
+
+```bash
+python pretrain_tinystories.py --model-size 25m
+```
+
+This script downloads and builds byte-level datasets under `data/tinystories_v2_gpt4/`
+unless you pass `--rebuild-data`.
+
+### Instruction finetuning (Alpaca + Dolly)
+
+```bash
+python finetune_instruct.py --model-size 25m
+```
+
+Instruction data is normalized to Alpaca format. Dolly examples are converted by:
+- `response` -> `output`
+- `category` is dropped
+- `context` is appended to the instruction as:
+  `instruction = f"{instruction}\n\n**Context:**\n{context}"`
+
+### Small-scale supervised finetuning (quick runs)
+
+```bash
+python sft_small.py --model-size 25m --max-examples 2000
+```
+
+### Model size presets
+
+BDH shares parameters across layers, so parameter count is driven by
+`n_embd` and `mlp_internal_dim_multiplier` rather than `n_layer`.
+
+- `25m` (default): `n_embd=256`, `n_head=4`, `mlp_internal_dim_multiplier=128`
+  (~25,296,896 parameters)
+- `100m`: `n_embd=512`, `n_head=8`, `mlp_internal_dim_multiplier=128`
+  (~100,925,440 parameters)
+
 <!--For visualization and interpretability analysis, explore the example notebooks in `notebooks/`.-->
 
 
