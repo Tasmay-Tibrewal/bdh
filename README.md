@@ -102,6 +102,18 @@ Instruction data is normalized to Alpaca format. Dolly examples are converted by
 python sft_small.py --model-size 25m --max-examples 2000
 ```
 
+### Utility: steps per epoch
+
+```bash
+python steps_per_epoch.py --data-bin data/tinystories_v2_gpt4/train.bin --batch-size 64 --block-size 512
+```
+
+### Utility: inference from a checkpoint
+
+```bash
+python infer.py --checkpoint checkpoints/pretrain_tinystories/ckpt_best.pt --prompt "Once upon a time, " --max-new-tokens 120
+```
+
 ### Model size presets
 
 BDH shares parameters across layers, so parameter count is driven by
