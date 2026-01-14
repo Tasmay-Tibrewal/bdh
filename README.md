@@ -68,7 +68,9 @@ All new training scripts log metrics to W&B. Make sure you are logged in:
 wandb login
 ```
 
-You can also override the project name per script with `--wandb-project`.
+You can override the project or entity with `--wandb-project` / `--wandb-entity`.
+If you hit a 403 permission error, pass your username or team name via
+`--wandb-entity`.
 
 ### Pretraining on TinyStories v2 (GPT-4 only)
 

@@ -53,7 +53,18 @@ def parse_args():
     parser.add_argument("--save-every", type=int, default=250)
 
     parser.add_argument("--wandb-project", default="bdh-sft-small")
+    parser.add_argument(
+        "--wandb-entity",
+        default=None,
+        help="W&B entity/team (defaults to your logged-in user).",
+    )
     parser.add_argument("--wandb-run-name", default=None)
+    parser.add_argument(
+        "--wandb-mode",
+        default="online",
+        choices=["online", "offline", "disabled"],
+        help="W&B mode (set offline if you want to sync later).",
+    )
     parser.add_argument("--no-wandb", action="store_true")
     return parser.parse_args()
 
@@ -96,11 +107,13 @@ def main():
     param_count = count_parameters(model)
     print(f"Using device: {device} dtype={dtype} params={param_count:,}")
 
-    use_wandb = not args.no_wandb
+    use_wandb = not args.no_wandb and args.wandb_mode != "disabled"
     if use_wandb:
         wandb.init(
             project=args.wandb_project,
+            entity=args.wandb_entity,
             name=args.wandb_run_name,
+            mode=args.wandb_mode,
             config={
                 **vars(args),
                 "model_config": dataclasses.asdict(config),
