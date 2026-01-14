@@ -54,7 +54,9 @@ class Attention(torch.nn.Module):
         return (v * phases_cos).to(v.dtype) + (v_rot * phases_sin).to(v.dtype)
 
     def forward(self, Q, K, V):
-        assert self.freqs.dtype == torch.float32
+        freqs = self.freqs
+        if freqs.dtype != torch.float32:
+            freqs = freqs.float()
         assert K is Q
         _, _, T, _ = Q.size()
 
@@ -62,10 +64,10 @@ class Attention(torch.nn.Module):
             torch.arange(
                 0,
                 T,
-                device=self.freqs.device,
-                dtype=self.freqs.dtype,
+                device=freqs.device,
+                dtype=freqs.dtype,
             ).view(1, 1, -1, 1)
-        ) * self.freqs
+        ) * freqs
         QR = self.rope(r_phases, Q)
         KR = QR
 

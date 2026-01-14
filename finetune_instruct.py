@@ -42,6 +42,12 @@ def parse_args():
 
     parser.add_argument("--block-size", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--grad-acc-steps",
+        type=int,
+        default=1,
+        help="Number of gradient accumulation steps.",
+    )
     parser.add_argument("--max-epochs", type=float, default=None)
     parser.add_argument("--max-steps", type=int, default=3000)
     parser.add_argument("--learning-rate", type=float, default=5e-4)
@@ -54,6 +60,9 @@ def parse_args():
 
     parser.add_argument("--out-dir", default="checkpoints/finetune_instruct")
     parser.add_argument("--save-every", type=int, default=1000)
+    parser.add_argument(
+        "--resume-from", default=None, help="Path to checkpoint .pt to resume training."
+    )
 
     parser.add_argument("--wandb-project", default="bdh-instruct")
     parser.add_argument(
@@ -74,6 +83,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    if args.grad_acc_steps < 1:
+        raise ValueError("--grad-acc-steps must be >= 1")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -100,23 +111,45 @@ def main():
         mlp_mult=args.mlp_mult,
         dropout=args.dropout,
     )
+    ckpt = None
+    start_step = 0
+    best_val_loss = None
+    if args.resume_from:
+        ckpt = torch.load(args.resume_from, map_location=device)
+        ckpt_config = ckpt.get("config")
+        if isinstance(ckpt_config, dict):
+            config = bdh.BDHConfig(**ckpt_config)
+        elif dataclasses.is_dataclass(ckpt_config):
+            config = ckpt_config
+        start_step = int(ckpt.get("step", 0))
+        best_val_loss = ckpt.get("best_val_loss", None)
+        print(f"resuming from {args.resume_from} at step {start_step}")
 
     model = bdh.BDH(config).to(device)
+    if ckpt and "model_state" in ckpt:
+        model.load_state_dict(ckpt["model_state"])
     model = maybe_compile(model, args.compile)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
+    if ckpt and "optimizer_state" in ckpt:
+        optimizer.load_state_dict(ckpt["optimizer_state"])
 
     param_count = count_parameters(model)
     print(f"Using device: {device} dtype={dtype} params={param_count:,}")
 
+    effective_batch_size = args.batch_size * args.grad_acc_steps
     steps_per_epoch_value = steps_per_epoch(
-        train_bin, args.block_size, args.batch_size
+        train_bin, args.block_size, effective_batch_size
     )
     if args.max_epochs is not None:
-        max_steps = int(math.ceil(args.max_epochs * steps_per_epoch_value))
+        target_steps = int(math.ceil(args.max_epochs * steps_per_epoch_value))
     else:
-        max_steps = args.max_steps
+        target_steps = args.max_steps
+    if start_step:
+        max_steps = start_step + target_steps
+    else:
+        max_steps = target_steps
 
     use_wandb = not args.no_wandb and args.wandb_mode != "disabled"
     if use_wandb:
@@ -128,6 +161,8 @@ def main():
             config={
                 **vars(args),
                 "computed_max_steps": max_steps,
+                "effective_batch_size": effective_batch_size,
+                "resume_step": start_step,
                 "steps_per_epoch": steps_per_epoch_value,
                 "model_config": dataclasses.asdict(config),
                 "param_count": param_count,
@@ -141,18 +176,18 @@ def main():
     loss_acc = 0.0
     loss_steps = 0
     start_time = time.time()
-    best_val_loss = None
-    for step in range(1, max_steps + 1):
-        x, y = train_data.get_batch(args.batch_size, device)
-        with ctx:
-            _, loss = model(x, y)
-        scaler.scale(loss).backward()
+    for step in range(start_step + 1, max_steps + 1):
+        optimizer.zero_grad(set_to_none=True)
+        for _ in range(args.grad_acc_steps):
+            x, y = train_data.get_batch(args.batch_size, device)
+            with ctx:
+                _, loss = model(x, y)
+                loss = loss / args.grad_acc_steps
+            scaler.scale(loss).backward()
+            loss_acc += loss.item() * args.grad_acc_steps
+            loss_steps += 1
         scaler.step(optimizer)
         scaler.update()
-        optimizer.zero_grad(set_to_none=True)
-
-        loss_acc += loss.item()
-        loss_steps += 1
 
         if step % args.log_interval == 0:
             avg_loss = loss_acc / max(1, loss_steps)
