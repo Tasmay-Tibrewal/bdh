@@ -76,8 +76,8 @@ You can also override the project name per script with `--wandb-project`.
 python pretrain_tinystories.py --model-size 25m
 ```
 
-This script downloads and builds byte-level datasets under `data/tinystories_v2_gpt4/`
-unless you pass `--rebuild-data`.
+This script pulls `noanabeshima/TinyStoriesV2` (GPT-4 only) and builds byte-level
+datasets under `data/tinystories_v2_gpt4/` unless you pass `--rebuild-data`.
 
 ### Instruction finetuning (Alpaca + Dolly)
 

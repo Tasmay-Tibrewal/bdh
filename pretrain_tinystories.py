@@ -23,13 +23,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Pretrain BDH on TinyStories v2.")
     parser.add_argument(
         "--dataset",
-        default="roneneldan/TinyStoriesV2",
+        default="noanabeshima/TinyStoriesV2",
         help="Hugging Face dataset path.",
     )
     parser.add_argument(
         "--dataset-config",
-        default="GPT4_only",
-        help="Dataset config/subset name.",
+        default=None,
+        help="Dataset config/subset name (optional).",
     )
     parser.add_argument("--train-split", default="train")
     parser.add_argument("--val-split", default="validation")
@@ -78,7 +78,7 @@ def main():
     dataset_config = args.dataset_config
     if dataset_config is not None:
         stripped = dataset_config.strip().lower()
-        if stripped in ("", "none", "null"):
+        if stripped in ("", "none", "null", "default"):
             dataset_config = None
 
     train_bin, val_bin, _meta = build_tinystories_bins(
