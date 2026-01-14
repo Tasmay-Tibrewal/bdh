@@ -30,6 +30,7 @@ def build_config(
     n_head=None,
     mlp_mult=None,
     dropout=None,
+    attn_window=None,
     vocab_size=None,
 ):
     config = bdh.BDHConfig()
@@ -48,6 +49,8 @@ def build_config(
         config.mlp_internal_dim_multiplier = mlp_mult
     if dropout is not None:
         config.dropout = dropout
+    if attn_window is not None:
+        config.attn_window = attn_window
     if vocab_size is not None:
         config.vocab_size = vocab_size
     return config
