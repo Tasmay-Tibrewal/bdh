@@ -1,3 +1,4 @@
+import math
 import os
 from contextlib import nullcontext
 
@@ -143,3 +144,15 @@ def maybe_compile(model, enable_compile):
 def ensure_dir(path):
     if path:
         os.makedirs(path, exist_ok=True)
+
+
+def steps_per_epoch(data_path, block_size, batch_size):
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(data_path)
+    n_tokens = os.path.getsize(data_path)
+    denom = batch_size * block_size
+    if n_tokens <= block_size + 1:
+        raise ValueError(
+            f"Not enough tokens in {data_path} for block_size={block_size}"
+        )
+    return max(1, math.floor((n_tokens - 1) / denom))

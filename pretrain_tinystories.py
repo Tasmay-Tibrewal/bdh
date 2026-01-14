@@ -1,5 +1,6 @@
 import argparse
 import dataclasses
+import math
 import os
 import time
 
@@ -16,6 +17,7 @@ from train_utils import (
     estimate_loss,
     maybe_compile,
     setup_device,
+    steps_per_epoch,
 )
 
 
@@ -47,6 +49,7 @@ def parse_args():
 
     parser.add_argument("--block-size", type=int, default=512)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--max-epochs", type=float, default=None)
     parser.add_argument("--max-steps", type=int, default=5000)
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=0.1)
@@ -122,6 +125,14 @@ def main():
     param_count = count_parameters(model)
     print(f"Using device: {device} dtype={dtype} params={param_count:,}")
 
+    steps_per_epoch_value = steps_per_epoch(
+        train_bin, args.block_size, args.batch_size
+    )
+    if args.max_epochs is not None:
+        max_steps = int(math.ceil(args.max_epochs * steps_per_epoch_value))
+    else:
+        max_steps = args.max_steps
+
     use_wandb = not args.no_wandb and args.wandb_mode != "disabled"
     if use_wandb:
         wandb.init(
@@ -131,6 +142,8 @@ def main():
             mode=args.wandb_mode,
             config={
                 **vars(args),
+                "computed_max_steps": max_steps,
+                "steps_per_epoch": steps_per_epoch_value,
                 "model_config": dataclasses.asdict(config),
                 "param_count": param_count,
                 "device": str(device),
@@ -143,7 +156,8 @@ def main():
     loss_acc = 0.0
     loss_steps = 0
     start_time = time.time()
-    for step in range(1, args.max_steps + 1):
+    best_val_loss = None
+    for step in range(1, max_steps + 1):
         x, y = train_data.get_batch(args.batch_size, device)
         with ctx:
             _, loss = model(x, y)
@@ -184,6 +198,21 @@ def main():
             print(f"step {step} val_loss={val_loss:.4f}")
             if use_wandb:
                 wandb.log({"val/loss": val_loss}, step=step)
+            if best_val_loss is None or val_loss < best_val_loss:
+                best_val_loss = val_loss
+                os.makedirs(args.out_dir, exist_ok=True)
+                best_path = os.path.join(args.out_dir, "ckpt_best.pt")
+                torch.save(
+                    {
+                        "model_state": model.state_dict(),
+                        "optimizer_state": optimizer.state_dict(),
+                        "config": dataclasses.asdict(config),
+                        "step": step,
+                        "best_val_loss": best_val_loss,
+                    },
+                    best_path,
+                )
+                print(f"saved best checkpoint to {best_path}")
 
         if args.save_every and step % args.save_every == 0:
             os.makedirs(args.out_dir, exist_ok=True)
@@ -194,6 +223,7 @@ def main():
                     "optimizer_state": optimizer.state_dict(),
                     "config": dataclasses.asdict(config),
                     "step": step,
+                    "best_val_loss": best_val_loss,
                 },
                 ckpt_path,
             )
@@ -205,7 +235,8 @@ def main():
             "model_state": model.state_dict(),
             "optimizer_state": optimizer.state_dict(),
             "config": dataclasses.asdict(config),
-            "step": args.max_steps,
+            "step": max_steps,
+            "best_val_loss": best_val_loss,
         },
         final_path,
     )

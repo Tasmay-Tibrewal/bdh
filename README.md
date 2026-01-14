@@ -80,6 +80,9 @@ python pretrain_tinystories.py --model-size 25m
 
 This script pulls `noanabeshima/TinyStoriesV2` (GPT-4 only) and builds byte-level
 datasets under `data/tinystories_v2_gpt4/` unless you pass `--rebuild-data`.
+You can specify `--max-epochs` to target approximate epochs instead of steps.
+Checkpoints are saved to `checkpoints/` with `ckpt_best.pt` tracking the best
+validation loss.
 
 ### Instruction finetuning (Alpaca + Dolly)
 
