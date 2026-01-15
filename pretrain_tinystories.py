@@ -57,7 +57,7 @@ def parse_args():
     )
     parser.add_argument("--max-epochs", type=float, default=None)
     parser.add_argument("--max-steps", type=int, default=5000)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=0.1)
     parser.add_argument("--log-interval", type=int, default=50)
     parser.add_argument("--eval-interval", type=int, default=500)
@@ -144,6 +144,9 @@ def main():
     if ckpt and "model_state" in ckpt:
         model.load_state_dict(ckpt["model_state"])
     model = maybe_compile(model, args.compile)
+
+    print("Initialising optimiser with learning rate:", args.learning_rate)
+
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
