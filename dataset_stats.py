@@ -181,6 +181,26 @@ def format_float(value):
     return f"{value:.6f}"
 
 
+def compute_vocab_token_stats(tokenizer):
+    vocab = tokenizer.get_vocab()
+    if not vocab:
+        return None, None
+    total_bytes = 0
+    total_chars = 0
+    count = 0
+    for token in vocab.keys():
+        try:
+            token_text = tokenizer.convert_tokens_to_string([token])
+        except Exception:
+            token_text = token
+        total_bytes += len(token_text.encode("utf-8"))
+        total_chars += len(token_text)
+        count += 1
+    if count == 0:
+        return None, None
+    return total_bytes / count, total_chars / count
+
+
 def main():
     args = parse_args()
 
@@ -190,6 +210,7 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(args.hf_model, use_fast=True)
     hf_config = AutoConfig.from_pretrained(args.hf_model)
+    avg_token_bytes, avg_token_chars = compute_vocab_token_stats(tokenizer)
 
     bdh_config = build_config(model_size=args.bdh_model_size)
 
@@ -290,6 +311,10 @@ def main():
         print(f"  intermediate_size: {hf_intermediate}")
     if hf_vocab is not None:
         print(f"  vocab_size: {hf_vocab}")
+    if avg_token_bytes is not None:
+        print(f"  avg_vocab_token_bytes: {format_float(avg_token_bytes)}")
+    if avg_token_chars is not None:
+        print(f"  avg_vocab_token_chars: {format_float(avg_token_chars)}")
 
 
 if __name__ == "__main__":
