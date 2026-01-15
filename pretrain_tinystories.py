@@ -145,8 +145,6 @@ def main():
         model.load_state_dict(ckpt["model_state"])
     model = maybe_compile(model, args.compile)
 
-    print("Initialising optimiser with learning rate:", args.learning_rate)
-
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
@@ -168,6 +166,8 @@ def main():
         max_steps = start_step + target_steps
     else:
         max_steps = target_steps
+
+    print("Initialising optimiser with learning rate:", args.learning_rate)
 
     use_wandb = not args.no_wandb and args.wandb_mode != "disabled"
     if use_wandb:
