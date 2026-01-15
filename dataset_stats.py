@@ -38,6 +38,12 @@ def parse_args():
         default="pretrain",
         help="Dataset type: pretrain (TinyStories) or ift (instruction).",
     )
+    parser.add_argument(
+        "--split",
+        choices=["train", "val", "both"],
+        default="both",
+        help="Which split(s) to compute.",
+    )
     parser.add_argument("--bdh-model-size", choices=["25m", "100m"], default="25m")
     parser.add_argument(
         "--hf-model",
@@ -165,6 +171,12 @@ def format_int(value):
     return f"{value:,}"
 
 
+def format_int_or_na(value):
+    if value is None:
+        return "n/a"
+    return format_int(value)
+
+
 def format_float(value):
     return f"{value:.6f}"
 
@@ -181,23 +193,43 @@ def main():
 
     bdh_config = build_config(model_size=args.bdh_model_size)
 
+    want_train = args.split in ("train", "both")
+    want_val = args.split in ("val", "both")
+
+    train_bytes = None
+    train_tokens = None
+    val_bytes = None
+    val_tokens = None
+
     if args.dataset == "pretrain":
-        train_texts = iter_pretrain_texts(args, args.train_split)
-        val_texts = iter_pretrain_texts(args, args.val_split)
+        if want_train:
+            train_texts = iter_pretrain_texts(args, args.train_split)
+            train_bytes, train_tokens = count_bytes_and_tokens(
+                train_texts, tokenizer, args.sep, args.tokenizer_batch_size
+            )
+        if want_val:
+            val_texts = iter_pretrain_texts(args, args.val_split)
+            val_bytes, val_tokens = count_bytes_and_tokens(
+                val_texts, tokenizer, args.sep, args.tokenizer_batch_size
+            )
     else:
         train_ds, val_ds = build_instruction_splits(args)
-        train_texts = iter_instruction_texts(train_ds)
-        val_texts = iter_instruction_texts(val_ds)
+        if want_train:
+            train_texts = iter_instruction_texts(train_ds)
+            train_bytes, train_tokens = count_bytes_and_tokens(
+                train_texts, tokenizer, args.sep, args.tokenizer_batch_size
+            )
+        if want_val:
+            val_texts = iter_instruction_texts(val_ds)
+            val_bytes, val_tokens = count_bytes_and_tokens(
+                val_texts, tokenizer, args.sep, args.tokenizer_batch_size
+            )
 
-    train_bytes, train_tokens = count_bytes_and_tokens(
-        train_texts, tokenizer, args.sep, args.tokenizer_batch_size
-    )
-    val_bytes, val_tokens = count_bytes_and_tokens(
-        val_texts, tokenizer, args.sep, args.tokenizer_batch_size
-    )
+    if not want_train and not want_val:
+        raise ValueError("--split must include train and/or val.")
 
-    total_bytes = train_bytes + val_bytes
-    total_tokens = train_tokens + val_tokens
+    total_bytes = sum(v for v in (train_bytes, val_bytes) if v is not None)
+    total_tokens = sum(v for v in (train_tokens, val_tokens) if v is not None)
     avg_bytes_per_token = (
         total_bytes / total_tokens if total_tokens else float("nan")
     )
@@ -224,11 +256,11 @@ def main():
 
     print("Dataset stats")
     print(f"  dataset_type: {args.dataset}")
-    print(f"  bdh_bytes_train: {format_int(train_bytes)}")
-    print(f"  bdh_bytes_val: {format_int(val_bytes)}")
+    print(f"  bdh_bytes_train: {format_int_or_na(train_bytes)}")
+    print(f"  bdh_bytes_val: {format_int_or_na(val_bytes)}")
     print(f"  bdh_bytes_total: {format_int(total_bytes)}")
-    print(f"  hf_tokens_train: {format_int(train_tokens)}")
-    print(f"  hf_tokens_val: {format_int(val_tokens)}")
+    print(f"  hf_tokens_train: {format_int_or_na(train_tokens)}")
+    print(f"  hf_tokens_val: {format_int_or_na(val_tokens)}")
     print(f"  hf_tokens_total: {format_int(total_tokens)}")
     print(f"  avg_bdh_bytes_per_hf_token: {format_float(avg_bytes_per_token)}")
     print(f"  sep: {repr(args.sep)}")
